@@ -1,0 +1,22 @@
+Checking dependencies...
+
+Network access is OFF (this PC only). To let another device use the app, run
+set_password.bat and allow_network_access.bat, then restart this.
+
+Starting the server... keep this window open while you use the app.
+
+INFO:     127.0.0.1:52107 - "GET /api/accounts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61308 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61308 - "GET /static/style.css HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:59933 - "GET /static/app.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:61308 - "GET /api/accounts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59933 - "GET /api/category_groups HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59933 - "GET /api/categories HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59933 - "GET /api/summary/month?year=2026&month=9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62940 - "GET /api/budget/data?year=2026&month=9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61308 - "GET /api/summary/year?year=2026 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62940 - "GET /api/import_batches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61308 - "GET /api/rules HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59933 - "GET /api/import_batches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59933 - "GET /api/transactions?year=2026&month=9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59933 - "GET /api/transactions?year=2026 HTTP/1.1" 200 OK
