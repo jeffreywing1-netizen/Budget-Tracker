@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Budget Tracker</title>
+<link rel="stylesheet" href="/static/style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<header>
+  <h1>Budget Tracker</h1>
+  <nav id="tabs">
+    <button class="tab-btn active" data-tab="import">Import</button>
+    <button class="tab-btn" data-tab="month">Month</button>
+    <button class="tab-btn" data-tab="year">Year</button>
+    <button class="tab-btn" data-tab="budget">Budget</button>
+    <button class="tab-btn" data-tab="transactions">Transactions</button>
+    <button class="tab-btn" data-tab="reconcile">Reconcile</button>
+    <button class="tab-btn" data-tab="manage">Accounts &amp; Rules</button>
+  </nav>
+</header>
+
+<main>
+
+  <section id="tab-import" class="tab-panel active">
+    <h2>Import a statement</h2>
+
+    <h3>Upload tracker <span class="hint">(has each account been uploaded this month?)</span></h3>
+    <table id="upload-tracker-table" class="breakdown-table"></table>
+
+    <div class="card">
+      <label>Account
+        <select id="import-account"></select>
+      </label>
+      <button id="new-account-toggle" type="button" class="link-btn">+ new account</button>
+      <div id="new-account-form" class="inline-form hidden">
+        <input id="na-name" placeholder="Account name (e.g. Chase Sapphire)">
+        <select id="na-institution">
+          <option value="chase">Chase</option>
+          <option value="capital_one">Capital One</option>
+          <option value="popular_bank">Popular Bank</option>
+          <option value="synchrony">Synchrony</option>
+          <option value="other">Other</option>
+        </select>
+        <select id="na-type">
+          <option value="credit">Credit card</option>
+          <option value="checking">Checking</option>
+          <option value="savings">Savings</option>
+        </select>
+        <input id="na-last4" placeholder="Last 4 (optional)" maxlength="4" style="width:80px">
+        <button id="na-save" type="button">Save account</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <label>Statement file
+        <input type="file" id="import-file" accept=".csv,.xlsx,.xlsm,.ofx,.qfx,.pdf">
+      </label>
+      <button id="import-preview-btn" type="button">Preview import</button>
+    </div>
+
+    <div id="mapping-card" class="card hidden">
+      <h3>Match up the columns</h3>
+      <p class="hint">We couldn't recognize this file's format automatically. Tell us which column is which.</p>
+      <table id="sample-table" class="sample-table"></table>
+      <div class="mapping-fields">
+        <label>Date column <select id="map-date"></select></label>
+        <label>Description column <select id="map-desc"></select></label>
+        <div id="map-amount-mode">
+          <label><input type="radio" name="amount-mode" value="single" checked> Single amount column</label>
+          <label><input type="radio" name="amount-mode" value="split"> Separate debit/credit columns</label>
+        </div>
+        <div id="map-single">
+          <label>Amount column <select id="map-amount"></select></label>
+          <label>Charges shown as
+            <select id="map-amount-sign">
+              <option value="spend_negative">Negative numbers (e.g. -12.34)</option>
+              <option value="spend_positive">Positive numbers (e.g. 12.34)</option>
+            </select>
+          </label>
+        </div>
+        <div id="map-split" class="hidden">
+          <label>Debit (money out) column <select id="map-debit"></select></label>
+          <label>Credit (money in) column <select id="map-credit"></select></label>
+        </div>
+      </div>
+      <button id="mapping-preview-btn" type="button">Preview with this mapping</button>
+    </div>
+
+    <div id="preview-card" class="hidden">
+      <h3>Review before importing</h3>
+      <p id="preview-summary"></p>
+      <p id="preview-statement" class="hint hidden"></p>
+      <p class="hint">Nothing is saved until you click Confirm. Change any category or split a charge below &mdash; your edits are applied as the transactions are imported.</p>
+      <table id="preview-txns-table" class="txn-table"></table>
+      <div class="inline-form">
+        <button id="confirm-import-btn" type="button" class="primary">Confirm import</button>
+        <button id="cancel-import-btn" type="button">Cancel</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-month" class="tab-panel">
+    <h2>Monthly view</h2>
+    <div class="controls">
+      <label>Year <select id="month-year"></select></label>
+      <label>Month <select id="month-month"></select></label>
+    </div>
+    <div class="summary-row">
+      <div class="stat-tile"><span class="stat-label">Spend</span><span id="month-spend" class="stat-value negative"></span></div>
+      <div class="stat-tile"><span class="stat-label">Income / Credits</span><span id="month-income" class="stat-value positive"></span></div>
+      <div class="stat-tile"><span class="stat-label">Transfers (not counted)</span><span id="month-transfers" class="stat-value muted"></span></div>
+    </div>
+    <h3>Expenses by category <span class="hint">(largest first, transfers &amp; card payments excluded)</span></h3>
+    <canvas id="month-expense-bar" height="90"></canvas>
+
+    <div class="filter-panel">
+      <div class="filter-panel-header">
+        <strong>Filter categories</strong>
+        <button type="button" class="link-btn" id="month-filter-all">Show all</button>
+        <button type="button" class="link-btn" id="month-filter-none">Show none</button>
+      </div>
+      <div class="filter-panel-body" id="month-filter-body"></div>
+    </div>
+
+    <h3>Transactions</h3>
+    <table id="month-transactions" class="txn-table"></table>
+
+    <h3>Category totals</h3>
+    <table id="month-breakdown" class="breakdown-table"></table>
+
+    <h3>Income by category</h3>
+    <table id="month-income-breakdown" class="breakdown-table"></table>
+  </section>
+
+  <section id="tab-year" class="tab-panel">
+    <h2>Yearly view</h2>
+    <div class="controls">
+      <label>Year <select id="year-year"></select></label>
+    </div>
+    <div class="summary-row">
+      <div class="stat-tile"><span class="stat-label">Spend</span><span id="year-spend" class="stat-value negative"></span></div>
+      <div class="stat-tile"><span class="stat-label">Income / Credits</span><span id="year-income" class="stat-value positive"></span></div>
+      <div class="stat-tile"><span class="stat-label">Transfers (not counted)</span><span id="year-transfers" class="stat-value muted"></span></div>
+    </div>
+    <h3>Expenses by category <span class="hint">(largest first, transfers &amp; card payments excluded)</span></h3>
+    <canvas id="year-expense-bar" height="90"></canvas>
+
+    <div class="filter-panel">
+      <div class="filter-panel-header">
+        <strong>Filter categories</strong>
+        <button type="button" class="link-btn" id="year-filter-all">Show all</button>
+        <button type="button" class="link-btn" id="year-filter-none">Show none</button>
+      </div>
+      <div class="filter-panel-body" id="year-filter-body"></div>
+    </div>
+
+    <h3>Transactions</h3>
+    <table id="year-transactions" class="txn-table"></table>
+
+    <h3>Category totals</h3>
+    <table id="year-breakdown" class="breakdown-table"></table>
+
+    <h3>Spend by month</h3>
+    <canvas id="year-chart" height="120"></canvas>
+
+    <h3>Income by category</h3>
+    <table id="year-income-breakdown" class="breakdown-table"></table>
+  </section>
+
+  <section id="tab-budget" class="tab-panel">
+    <h2>Budget</h2>
+    <div class="controls">
+      <label>Year <select id="budget-year"></select></label>
+      <label>Month <select id="budget-month"></select></label>
+    </div>
+    <table id="budget-summary-table" class="breakdown-table">
+      <thead>
+        <tr><th></th><th>Budget</th><th>Actual</th><th>Difference</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Monthly charges</td>
+          <td id="bs-monthly-budget"></td><td id="bs-monthly-actual"></td><td id="bs-monthly-diff" class="amount-cell"></td>
+        </tr>
+        <tr>
+          <td>Annual charges &mdash; monthly portion (&divide;12)</td>
+          <td id="bs-annual-budget"></td><td id="bs-annual-actual"></td><td id="bs-annual-diff" class="amount-cell"></td>
+        </tr>
+        <tr class="total-row">
+          <td>Total budgeted for the month</td>
+          <td id="bs-total-budget"></td><td id="bs-total-actual"></td><td id="bs-total-diff" class="amount-cell"></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Monthly Charges</h3>
+    <canvas id="budget-monthly-chart" height="100"></canvas>
+    <table id="budget-monthly-table" class="breakdown-table"></table>
+
+    <h3>Annual Charges <span class="hint">(confirmed every month &mdash; adjust as new annual items come up; the 1/12 amortized amount rolls into the monthly total above)</span></h3>
+    <canvas id="budget-annual-chart" height="100"></canvas>
+    <table id="budget-annual-table" class="breakdown-table"></table>
+
+    <button id="budget-lock-btn" type="button" class="primary">Lock in budget for this month</button>
+  </section>
+
+  <section id="tab-transactions" class="tab-panel">
+    <h2>All transactions</h2>
+    <div class="controls">
+      <label>Account <select id="txn-account"><option value="">All</option></select></label>
+      <label>Category <select id="txn-category"><option value="">All</option></select></label>
+      <label>From <input id="txn-date-from" type="date"></label>
+      <label>To <input id="txn-date-to" type="date"></label>
+      <label>Search <input id="txn-search" placeholder="description..."></label>
+      <button id="txn-filter-btn" type="button">Filter</button>
+      <button id="txn-clear-btn" type="button">Clear</button>
+    </div>
+    <table id="txn-table" class="txn-table"></table>
+  </section>
+
+  <section id="tab-reconcile" class="tab-panel">
+    <h2>Reconcile statements</h2>
+    <p class="hint">Compares what was imported for each statement period against the balances printed on that statement, so you can see if anything is missing or counted twice. It only runs when you click the button.</p>
+
+    <div class="card">
+      <label>Account
+        <select id="rc-run-account"></select>
+      </label>
+      <button id="rc-run-btn" type="button" class="primary">Run reconciliation</button>
+      <span id="rc-run-status" class="hint"></span>
+    </div>
+
+    <div id="rc-results" class="hidden">
+      <p id="rc-summary"></p>
+      <label style="flex-direction:row;align-items:center;gap:6px;margin-bottom:10px;">
+        <input id="rc-only-flagged" type="checkbox">
+        Show only statements that need attention
+      </label>
+      <table id="rc-table" class="breakdown-table"></table>
+    </div>
+
+    <h3>Statements on file</h3>
+    <div class="card stack">
+      <div class="inline-form">
+        <label>Account
+          <select id="rc-account"></select>
+        </label>
+      </div>
+      <div class="inline-form">
+        <strong>Read from statement PDFs</strong>
+        <input type="file" id="rc-pdf" accept=".pdf" multiple>
+        <button id="rc-pdf-btn" type="button">Read PDF(s)</button>
+      </div>
+      <div id="rc-pdf-result"></div>
+      <strong id="rc-form-title">Or enter a statement by hand</strong>
+      <div class="inline-form">
+        <label>Start date (optional)
+          <input id="rc-start" type="date">
+        </label>
+        <label>Closing date
+          <input id="rc-end" type="date">
+        </label>
+        <label>Previous balance (optional)
+          <input id="rc-prev" type="number" step="0.01" style="width:130px">
+        </label>
+        <label>New balance
+          <input id="rc-new" type="number" step="0.01" style="width:130px">
+        </label>
+        <button id="rc-save-btn" type="button" class="primary">Save statement</button>
+        <button id="rc-cancel-btn" type="button" class="hidden">Cancel edit</button>
+      </div>
+      <p class="hint" style="margin:0">Enter the balances exactly as printed on the statement (for a credit card, the amount you owe). Leave the start date and previous balance blank to continue from the previous statement on file for the account.</p>
+    </div>
+    <table id="rc-statements-table" class="breakdown-table"></table>
+  </section>
+
+  <section id="tab-manage" class="tab-panel">
+    <h2>Accounts</h2>
+    <table id="accounts-table" class="breakdown-table"></table>
+
+    <h2>Category groups</h2>
+    <p class="hint">Groups let you roll up related categories (e.g. "Casita", "RVs", "Travel") for filtering the Month/Year charts.</p>
+    <div class="inline-form">
+      <input id="group-name" placeholder="Group name, e.g. Casita">
+      <label>Color <input id="group-color" type="color" value="#9E9E9E" style="padding:2px;width:44px"></label>
+      <button id="group-add-btn" type="button">Add group</button>
+    </div>
+    <table id="groups-table" class="breakdown-table"></table>
+
+    <h2>Categories</h2>
+    <p class="hint">Check "transfer" for categories like credit card payments between your own accounts &mdash; these are excluded from spend and income totals.</p>
+    <div class="inline-form">
+      <input id="cat-name" placeholder="Category name, e.g. Pet Care">
+      <label>Color <input id="cat-color" type="color" value="#9E9E9E" style="padding:2px;width:44px"></label>
+      <label>Group <select id="cat-group"><option value="">(none)</option></select></label>
+      <label>Budget <select id="cat-frequency">
+        <option value="monthly">Monthly</option>
+        <option value="annual">Annual</option>
+      </select></label>
+      <label style="flex-direction:row;align-items:center;gap:6px;">
+        <input id="cat-is-transfer" type="checkbox">
+        Transfer (exclude from totals)
+      </label>
+      <button id="cat-add-btn" type="button">Add category</button>
+    </div>
+    <table id="categories-table" class="breakdown-table"></table>
+
+    <h2>Category rules</h2>
+    <p class="hint">Transactions are auto-categorized by matching these patterns against the description, highest priority first.</p>
+    <div class="inline-form">
+      <input id="rule-pattern" placeholder="pattern, e.g. STARBUCKS">
+      <select id="rule-category"></select>
+      <input id="rule-priority" type="number" value="150" style="width:70px" title="priority">
+      <label style="flex-direction:row;align-items:center;gap:6px;">
+        <input id="rule-apply-existing" type="checkbox" checked>
+        Apply to matching transactions already imported
+      </label>
+      <button id="rule-add-btn" type="button">Add rule</button>
+    </div>
+    <table id="rules-table" class="breakdown-table"></table>
+
+    <h2>Import history &amp; reconciliation</h2>
+    <p class="hint">Type the total shown on the actual statement into "Statement total" and press Enter to check it against what got imported.</p>
+    <table id="batches-table" class="breakdown-table"></table>
+
+    <h2 class="danger-heading">Danger zone</h2>
+    <p class="hint">Permanently delete all transactions dated before a given date &mdash; useful for trimming old data before a big re-import. A backup of the whole database is made automatically first.</p>
+    <div class="inline-form">
+      <label>Delete transactions before <input id="trim-before" type="date"></label>
+      <button id="trim-preview-btn" type="button">Preview</button>
+    </div>
+    <div id="trim-preview-result" class="hidden">
+      <p id="trim-preview-summary"></p>
+      <table id="trim-preview-table" class="breakdown-table"></table>
+      <button id="trim-confirm-btn" type="button" class="danger-btn">Permanently delete these transactions</button>
+    </div>
+  </section>
+
+</main>
+
+<div id="split-modal" class="modal-overlay hidden">
+  <div class="modal-box">
+    <h3>Split transaction</h3>
+    <p id="split-modal-desc" class="hint"></p>
+    <div id="split-rows"></div>
+    <button id="split-add-row-btn" type="button" class="link-btn">+ add category</button>
+    <p id="split-remaining" class="hint"></p>
+    <div class="modal-actions">
+      <button id="split-remove-btn" type="button">Remove split</button>
+      <span style="flex:1"></span>
+      <button id="split-cancel-btn" type="button">Cancel</button>
+      <button id="split-save-btn" type="button" class="primary">Save split</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
